@@ -76,6 +76,47 @@ where
     Ok(cur.into_iter().flat_map(|e| e.into_bits_be()).collect())
 }
 
+// Modification of sha256 gadget that hashes the same input message
+// multiple times. It iterates sha256 over the same message. Used for
+// benchmarking.
+pub fn sha256iterated<Scalar, CS>(mut cs: CS, input: &[Boolean], niterations: u32) -> Result<Vec<Boolean>, SynthesisError>
+where
+    Scalar: PrimeField,
+    CS: ConstraintSystem<Scalar>,
+{
+    assert!(input.len() % 8 == 0);
+
+    let mut padded = input.to_vec();
+    let plen = padded.len() as u64;
+    // append a single '1' bit
+    padded.push(Boolean::constant(true));
+    // append K '0' bits, where K is the minimum number >= 0 such that L + 1 + K + 64 is a multiple of 512
+    while (padded.len() + 64) % 512 != 0 {
+        padded.push(Boolean::constant(false));
+    }
+    // append L as a 64-bit big-endian integer, making the total post-processed length a multiple of 512 bits
+    for b in (0..64).rev().map(|i| (plen >> i) & 1 == 1) {
+        padded.push(Boolean::constant(b));
+    }
+    assert!(padded.len() % 512 == 0);
+
+    let nblocks = padded.chunks(512).len();    
+
+    let mut cur: Vec<UInt32> = Vec::new();
+    
+    for iter in 0..niterations {
+	let j: usize = iter.try_into().unwrap();
+	// println!("iteration {jiter}");
+	cur = get_sha256_iv();
+	for (i, block) in padded.chunks(512).enumerate() {
+	    // println!("block {:?}", (jiter * nblocks) + i);
+            cur = sha256_compression_function(cs.namespace(|| format!("block {}", (j * nblocks) + i)), block, &cur)?;
+	}
+    }
+    
+    Ok(cur.into_iter().flat_map(|e| e.into_bits_be()).collect())
+}
+
 fn get_sha256_iv() -> Vec<UInt32> {
     IV.iter().map(|&v| UInt32::constant(v)).collect()
 }
