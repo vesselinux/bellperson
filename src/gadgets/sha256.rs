@@ -102,19 +102,25 @@ where
 
     let nblocks = padded.chunks(512).len();    
 
-    let mut cur: Vec<UInt32> = Vec::new();
+    // final result storing a concatenation of all hashes
+    let mut res: Vec<UInt32> = Vec::new();
     
+    // let mut cur: Vec<UInt32> = Vec::new();    
     for iter in 0..niterations {
 	let j: usize = iter.try_into().unwrap();
 	// println!("iteration {jiter}");
-	cur = get_sha256_iv();
+        let mut cur = get_sha256_iv();
+	// cur = get_sha256_iv();
 	for (i, block) in padded.chunks(512).enumerate() {
 	    // println!("block {:?}", (jiter * nblocks) + i);
             cur = sha256_compression_function(cs.namespace(|| format!("block {}", (j * nblocks) + i)), block, &cur)?;
 	}
+	// append the hash 'cur' to the final result
+	res.append(&mut cur);
     }
     
-    Ok(cur.into_iter().flat_map(|e| e.into_bits_be()).collect())
+    // Ok(cur.into_iter().flat_map(|e| e.into_bits_be()).collect())
+    Ok(res.into_iter().flat_map(|e| e.into_bits_be()).collect())
 }
 
 fn get_sha256_iv() -> Vec<UInt32> {
