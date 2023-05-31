@@ -85,6 +85,7 @@ where
     CS: ConstraintSystem<Scalar>,
 {
     assert!(input.len() % 8 == 0);
+    assert_eq!(input.len(), 64 * 8 * (niterations as usize));
 
     // final result storing a concatenation of all hashes
     let mut res: Vec<UInt32> = Vec::new();
