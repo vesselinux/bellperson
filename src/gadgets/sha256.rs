@@ -91,6 +91,8 @@ where
     let mut res: Vec<UInt32> = Vec::new();
     
     for iter in 0..niterations {
+	// let input_slice = &input[(iter * 64 *8)..((iter * 64 *8) + (64 * 8))];
+	
 	let mut padded = input.to_vec();
 	let plen = padded.len() as u64;
 	// append a single '1' bit
