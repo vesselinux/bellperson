@@ -86,27 +86,28 @@ where
 {
     assert!(input.len() % 8 == 0);
 
-    let mut padded = input.to_vec();
-    let plen = padded.len() as u64;
-    // append a single '1' bit
-    padded.push(Boolean::constant(true));
-    // append K '0' bits, where K is the minimum number >= 0 such that L + 1 + K + 64 is a multiple of 512
-    while (padded.len() + 64) % 512 != 0 {
-        padded.push(Boolean::constant(false));
-    }
-    // append L as a 64-bit big-endian integer, making the total post-processed length a multiple of 512 bits
-    for b in (0..64).rev().map(|i| (plen >> i) & 1 == 1) {
-        padded.push(Boolean::constant(b));
-    }
-    assert!(padded.len() % 512 == 0);
-
-    let nblocks = padded.chunks(512).len();    
-
     // final result storing a concatenation of all hashes
     let mut res: Vec<UInt32> = Vec::new();
     
-    // let mut cur: Vec<UInt32> = Vec::new();    
     for iter in 0..niterations {
+	let mut padded = input.to_vec();
+	let plen = padded.len() as u64;
+	// append a single '1' bit
+	padded.push(Boolean::constant(true));
+	// append K '0' bits, where K is the minimum number >= 0 such that L + 1 + K + 64 is a multiple of 512
+	while (padded.len() + 64) % 512 != 0 {
+            padded.push(Boolean::constant(false));
+	}
+	// append L as a 64-bit big-endian integer, making the total post-processed length a multiple of 512 bits
+	for b in (0..64).rev().map(|i| (plen >> i) & 1 == 1) {
+            padded.push(Boolean::constant(b));
+	}
+	assert!(padded.len() % 512 == 0);
+
+	let nblocks = padded.chunks(512).len();    
+
+	// let mut cur: Vec<UInt32> = Vec::new();    
+	// for iter in 0..niterations {
 	let j: usize = iter.try_into().unwrap();
 	// println!("iteration {jiter}");
         let mut cur = get_sha256_iv();
