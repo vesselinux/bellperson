@@ -79,13 +79,13 @@ where
 // Modification of sha256 gadget that hashes the same input message
 // multiple times. It iterates sha256 over the same message. Used for
 // benchmarking.
-pub fn sha256iterated<Scalar, CS>(mut cs: CS, input: &[Boolean], niterations: u32) -> Result<Vec<Boolean>, SynthesisError>
+pub fn sha256iterated<Scalar, CS>(mut cs: CS, input: &[Boolean], niterations: usize) -> Result<Vec<Boolean>, SynthesisError>
 where
     Scalar: PrimeField,
     CS: ConstraintSystem<Scalar>,
 {
     assert!(input.len() % 8 == 0);
-    assert_eq!(input.len(), 64 * 8 * (niterations as usize));
+    assert_eq!(input.len(), 64 * 8 * (niterations));
 
     // final result storing a concatenation of all hashes
     let mut res: Vec<UInt32> = Vec::new();
