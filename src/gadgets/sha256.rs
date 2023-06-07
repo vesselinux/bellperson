@@ -79,7 +79,7 @@ where
 // Modification of sha256 gadget that hashes the same input message
 // multiple times. It iterates sha256 over the same message. Used for
 // benchmarking.
-pub fn sha256iterated<Scalar, CS>(mut cs: CS, input: &[Boolean], niterations: usize) -> Result<Vec<Boolean>, SynthesisError>
+pub fn sha256iterated<Scalar, CS>(mut cs: CS, input: &[Boolean], niterations: usize) -> Result<Vec<Vec<Boolean>>, SynthesisError>
 where
     Scalar: PrimeField,
     CS: ConstraintSystem<Scalar>,
@@ -88,12 +88,17 @@ where
     assert_eq!(input.len(), 64 * 8 * (niterations));
 
     // final result storing a concatenation of all hashes
-    let mut res: Vec<UInt32> = Vec::new();
+    // let mut res: Vec<UInt32> = Vec::new();
+    // let mut res: Vec<Vec<Boolean>> = Vec::new();
+    let mut res: Vec<Boolean> = Vec::new();
+    let mut res_vec: Vec<Vec<Boolean>> = Vec::new();
     
     for iter in 0..niterations {
-	// let input_slice = &input[(iter * 64 *8)..((iter * 64 *8) + (64 * 8))];
+	let input_slice = &input[(iter * 64 *8)..((iter * 64 *8) + (64 * 8))];
+	assert_eq!(input_slice.len(), 64 * 8);
 	
-	let mut padded = input.to_vec();
+	// let mut padded = input.to_vec();
+	let mut padded = input_slice.to_vec();
 	let plen = padded.len() as u64;
 	// append a single '1' bit
 	padded.push(Boolean::constant(true));
@@ -120,11 +125,31 @@ where
             cur = sha256_compression_function(cs.namespace(|| format!("block {}", (j * nblocks) + i)), block, &cur)?;
 	}
 	// append the hash 'cur' to the final result
-	res.append(&mut cur);
+	// cur.into_iter().flat_map(|e| e.into_bits_be()).collect();
+	//res.append(&mut cur);
+	// res.append(cur.into_iter().flat_map(|e| e.into_bits_be()).collect());
+        let mut cur_boolean = cur
+            .into_iter()
+            .flat_map(|e| e.into_bits_be())
+            .collect::<Vec<Boolean>>();
+        res.append(cur_boolean.as_mut());
+
+	let mut cur_vec: Vec<Boolean> = Vec::new();
+        cur_vec.append(cur_boolean.as_mut());
+	
+	res_vec.push(cur_vec);
+	
+	//let mut cur_vec: Vec<Boolean> = Vec::new();
+	//cur_vec.append(cur_boolean.as_mut());
+        //res.push(cur_vec);	
     }
     
     // Ok(cur.into_iter().flat_map(|e| e.into_bits_be()).collect())
-    Ok(res.into_iter().flat_map(|e| e.into_bits_be()).collect())
+    // Ok(res.into_iter().flat_map(|e| e.into_bits_be()).collect())
+    
+    // println!("res length {:?}", res.len());
+    // println!("res_vec length {:?}", res_vec.len());
+    Ok(res_vec)
 }
 
 fn get_sha256_iv() -> Vec<UInt32> {
