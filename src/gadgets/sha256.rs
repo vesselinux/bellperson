@@ -79,7 +79,7 @@ where
 // Modification of sha256 gadget that hashes the same input message
 // multiple times. It iterates sha256 over the same message. Used for
 // benchmarking.
-pub fn sha256iterated<Scalar, CS>(mut cs: CS, input: &[Boolean], niterations: usize) -> Result<Vec<Vec<Boolean>>, SynthesisError>
+pub fn sha256iterated_vector<Scalar, CS>(mut cs: CS, input: &[Boolean], niterations: usize) -> Result<Vec<Vec<Boolean>>, SynthesisError>
 where
     Scalar: PrimeField,
     CS: ConstraintSystem<Scalar>,
@@ -150,6 +150,67 @@ where
     // println!("res length {:?}", res.len());
     // println!("res_vec length {:?}", res_vec.len());
     Ok(res_vec)
+}
+
+// Same as sha256iterated_vector, but instead of a vector of hashes
+// returns a single hash. The assumption is that we are hashing the
+// same vlaue niterations number of times. The result is a vector of
+// niterations number of hashes all of which are identical. The output
+// of the function is a single hash X instead of a vector of
+// niterations copies of X. The rationale is that niterations of
+// computation are still executed (and this is what we want to
+// measure). Yet just a single element is returned which reuiqres
+// minimum modification of the Nova library (cf. example sha256.rs) in
+// order to compute the Nova recursive proof.
+pub fn sha256iterated<Scalar, CS>(mut cs: CS, input: &[Boolean], niterations: usize) -> Result<Vec<Boolean>, SynthesisError>
+where
+    Scalar: PrimeField,
+    CS: ConstraintSystem<Scalar>,
+{
+    assert!(input.len() % 8 == 0);
+    assert_eq!(input.len(), 64 * 8 * (niterations));
+
+    // final result storing a concatenation of all hashes
+    let mut res: Vec<UInt32> = Vec::new();    
+    
+    for iter in 0..niterations {
+
+	// clear the vector as we are intrested only in the last hash
+	// (the output of the function)
+	res.clear();
+	
+	let input_slice = &input[(iter * 64 *8)..((iter * 64 *8) + (64 * 8))];
+	assert_eq!(input_slice.len(), 64 * 8);
+	
+	// let mut padded = input.to_vec();
+	let mut padded = input_slice.to_vec();
+	let plen = padded.len() as u64;
+	// append a single '1' bit
+	padded.push(Boolean::constant(true));
+	// append K '0' bits, where K is the minimum number >= 0 such that L + 1 + K + 64 is a multiple of 512
+	while (padded.len() + 64) % 512 != 0 {
+            padded.push(Boolean::constant(false));
+	}
+	// append L as a 64-bit big-endian integer, making the total post-processed length a multiple of 512 bits
+	for b in (0..64).rev().map(|i| (plen >> i) & 1 == 1) {
+            padded.push(Boolean::constant(b));
+	}
+	assert!(padded.len() % 512 == 0);
+
+	let nblocks = padded.chunks(512).len();    
+
+	let j: usize = iter.try_into().unwrap();
+	// println!("iteration {jiter}");
+        let mut cur = get_sha256_iv();
+	for (i, block) in padded.chunks(512).enumerate() {
+	    // println!("block {:?}", (jiter * nblocks) + i);
+            cur = sha256_compression_function(cs.namespace(|| format!("block {}", (j * nblocks) + i)), block, &cur)?;
+	}
+	// append the hash 'cur' to the final result
+	res.append(&mut cur);
+    }
+
+    Ok(res.into_iter().flat_map(|e| e.into_bits_be()).collect())
 }
 
 fn get_sha256_iv() -> Vec<UInt32> {
